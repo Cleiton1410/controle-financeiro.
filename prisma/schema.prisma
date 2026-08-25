@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Transaction {
+  id       Int    @id @default(autoincrement())
+  name     String
+  category String
+  date     String
+  value    Float
+  type     String
+}
+
+model Goal {
+  id      Int    @id @default(autoincrement())
+  name    String
+  current Float  @default(0)
+  target  Float
+}
+
+model Account {
+  id    Int    @id @default(autoincrement())
+  name  String
+  type  String
+  value Float
+}
