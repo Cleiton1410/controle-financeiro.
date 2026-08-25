@@ -9,23 +9,44 @@ datasource db {
 
 model Transaction {
   id       Int    @id @default(autoincrement())
+  userId   Int?
   name     String
   category String
   date     String
   value    Float
   type     String
+  user     User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("Transaction")
 }
 
 model Goal {
   id      Int    @id @default(autoincrement())
+  userId  Int?
   name    String
   current Float  @default(0)
   target  Float
+  user    User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("Goal")
 }
 
 model Account {
   id    Int    @id @default(autoincrement())
+  userId Int?
   name  String
   type  String
   value Float
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("Account")
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+  goals        Goal[]
+  accounts     Account[]
+  @@map("User")
 }

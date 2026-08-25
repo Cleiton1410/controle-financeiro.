@@ -6,6 +6,7 @@ import { ArrowDownLeft, ArrowUpRight, Bell, CalendarDays, ChevronDown, CreditCar
 type Transaction = { id: number; name: string; category: string; date: string; value: number; type: "income" | "expense" }
 type Goal = { id: number; name: string; current: number; target: number }
 type Account = { id: number; name: string; type: string; value: number }
+type User = { id: number; name: string; email: string }
 
 const initialTransactions: Transaction[] = []
 const initialGoals: Goal[] = [{ id: 1, name: "Viagem para Europa eu e  fran", current: 0, target: 0 }, { id: 2, name: "Reserva de emergência", current: 0, target: 0 }]
@@ -25,6 +26,9 @@ export default function Page() {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
   const [hydrated, setHydrated] = useState(false)
   const [databaseReady, setDatabaseReady] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authError, setAuthError] = useState("")
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveChain = useRef(Promise.resolve())
   const expenseCategories = categories.filter(c => c !== "Salário" && c !== "Renda extra")
@@ -36,25 +40,11 @@ export default function Page() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [accountForm, setAccountForm] = useState({ name: "", type: "Conta corrente", value: "" })
 
+  useEffect(() => { fetch("/api/auth/me").then(response => response.ok ? response.json() : Promise.reject()).then(data => setUser(data.user)).catch(() => undefined).finally(() => setAuthLoading(false)) }, [])
   useEffect(() => {
-    fetch("/api/finance").then(response => {
-      if (!response.ok) throw new Error("Não foi possível carregar o banco")
-      return response.json()
-    }).then(data => {
-      let nextData = data
-      const saved = window.localStorage.getItem("nexa-finance-data-v2")
-      if (!data.transactions.length && saved) {
-        try {
-          const localData = JSON.parse(saved)
-          if (localData.transactions?.length || localData.goals?.length || localData.accounts?.length) nextData = localData
-        } catch { window.localStorage.removeItem("nexa-finance-data-v2") }
-      }
-      setTransactions(nextData.transactions)
-      setGoals(nextData.goals)
-      setAccounts(nextData.accounts)
-      setDatabaseReady(true)
-    }).catch(error => console.error(error)).finally(() => setHydrated(true))
-  }, [])
+    if (!user) return
+    fetch("/api/finance").then(response => { if (!response.ok) throw new Error("Não foi possível carregar o banco"); return response.json() }).then(data => { setTransactions(data.transactions); setGoals(data.goals); setAccounts(data.accounts); setDatabaseReady(true) }).catch(error => console.error(error)).finally(() => setHydrated(true))
+  }, [user])
   useEffect(() => {
     if (!hydrated || !databaseReady) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -79,9 +69,12 @@ export default function Page() {
   const saveAccount = () => { const value = Number(accountForm.value.replace(",", ".")); if (!accountForm.name.trim() || Number.isNaN(value) || value < 0) return; if (editingAccount) setAccounts(accounts.map(a => a.id === editingAccount.id ? { ...a, name: accountForm.name.trim(), type: accountForm.type, value } : a)); else setAccounts([...accounts, { id: Date.now(), name: accountForm.name.trim(), type: accountForm.type, value }]); setAccountModal(false) }
   const nav = [["Visão geral", LayoutDashboard], ["Transações", ArrowUpRight], ["Metas", Target], ["Contas e cartões", CreditCard]] as const
 
+  if (authLoading) return <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">Carregando...</div>
+  if (!user) return <AuthScreen onAuthenticated={setUser} error={authError} setError={setAuthError} />
+
   return <main className="min-h-screen bg-background text-foreground">
     <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-sidebar px-5 py-6 lg:flex"><Brand /><Nav active={active} setActive={setActive} nav={nav} /><div className="mt-auto flex flex-col gap-5"><button onClick={() => setActive("Configurações")} className="flex items-center gap-3 px-3 py-3 text-sm text-muted-foreground"><Settings className="size-[18px]" />Configurações</button><Profile /></div></aside>
-    <section className="lg:pl-64"><header className="flex items-center justify-between border-b border-border px-5 py-5 md:px-10"><div className="flex items-center gap-3"><button className="lg:hidden" onClick={() => setMobileNav(!mobileNav)} aria-label="Abrir menu"><Menu /></button><div><p className="text-sm text-muted-foreground">Domingo, 15 de junho de 2025</p><h1 className="mt-1 text-2xl font-semibold">Olá, Cleiton e Francieli</h1></div></div><div className="flex items-center gap-3"><button onClick={() => setNotifications(!notifications)} className="grid size-10 place-items-center rounded-xl border border-border text-muted-foreground" aria-label="Notificações"><Bell className="size-[18px]" /></button><button onClick={() => setModal(true)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"><Plus className="size-4" />Nova transação</button></div></header>
+    <section className="lg:pl-64"><header className="flex items-center justify-between border-b border-border px-5 py-5 md:px-10"><div className="flex items-center gap-3"><button className="lg:hidden" onClick={() => setMobileNav(!mobileNav)} aria-label="Abrir menu"><Menu /></button><div><p className="text-sm text-muted-foreground">Domingo, 15 de junho de 2025</p><h1 className="mt-1 text-2xl font-semibold">Olá, {user.name}</h1></div></div><div className="flex items-center gap-3"><button onClick={() => setNotifications(!notifications)} className="grid size-10 place-items-center rounded-xl border border-border text-muted-foreground" aria-label="Notificações"><Bell className="size-[18px]" /></button><button onClick={() => { fetch("/api/auth/logout", { method: "POST" }).then(() => window.location.reload()) }} className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground">Sair</button><button onClick={() => setModal(true)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"><Plus className="size-4" />Nova transação</button></div></header>
       {mobileNav && <div className="flex flex-wrap gap-2 border-b border-border p-4 lg:hidden"><Nav active={active} setActive={(v) => { setActive(v); setMobileNav(false) }} nav={nav} /></div>}
       {notifications && <div className="mx-5 mt-4 rounded-xl border border-border bg-card p-4 text-sm md:mx-10"><b>Notificações</b><p className="mt-1 text-muted-foreground">Sua fatura vence em 5 dias. Você está dentro do orçamento mensal.</p></div>}
       {active === "Visão geral" ? <Dashboard {...{ hidden, setHidden, period, setPeriod, display, income, expenses, balance, transactions, setTransactions, goals, setGoalModal, updateGoal, deleteGoal, accounts }} /> : active === "Transações" ? <Transactions transactions={transactions} setTransactions={setTransactions} onAdd={() => setModal(true)} /> : active === "Metas" ? <Goals goals={goals} setGoalModal={setGoalModal} onUpdate={updateGoal} onDelete={deleteGoal} /> : active === "Contas e cartões" ? <Accounts accounts={accounts} onEdit={openAccountEditor} onAdd={() => openAccountEditor()} onDelete={(id: number) => setAccounts(accounts.filter(a => a.id !== id))} /> : <SettingsPanel />}
@@ -90,6 +83,27 @@ export default function Page() {
     {goalModal && <GoalModal form={goalForm} setForm={setGoalForm} onClose={() => setGoalModal(false)} onSave={addGoal} />}
     {accountModal && <AccountModal form={accountForm} setForm={setAccountForm} editing={Boolean(editingAccount)} onClose={() => setAccountModal(false)} onSave={saveAccount} />}
   </main>
+}
+
+function AuthScreen({ onAuthenticated, error, setError }: { onAuthenticated: (user: User) => void; error: string; setError: (value: string) => void }) {
+  const [registering, setRegistering] = useState(false)
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setLoading(true)
+    setError("")
+    const response = await fetch(registering ? "/api/auth/register" : "/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) })
+    const data = await response.json()
+    if (response.ok) onAuthenticated(data.user)
+    else setError(data.error ?? "Não foi possível entrar.")
+    setLoading(false)
+  }
+
+  return <main className="grid min-h-screen place-items-center bg-background px-5 py-10 text-foreground"><div className="w-full max-w-md rounded-2xl border border-border bg-card p-7"><div className="mb-8 flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground"><Wallet className="size-5" /></div><div><b>Nexa Finance</b><p className="text-xs text-muted-foreground">Controle financeiro</p></div></div><h1 className="text-2xl font-semibold">{registering ? "Crie sua conta" : "Bem-vindo de volta"}</h1><p className="mt-2 text-sm text-muted-foreground">{registering ? "Comece a organizar suas finanças." : "Entre para acessar seus dados financeiros."}</p><form onSubmit={submit} className="mt-6 flex flex-col gap-4">{registering && <input required value={name} onChange={event => setName(event.target.value)} placeholder="Nome" className="rounded-xl border border-border bg-background px-3 py-3" />}<input required type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="E-mail" className="rounded-xl border border-border bg-background px-3 py-3" /><input required minLength={6} type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Senha (mínimo 6 caracteres)" className="rounded-xl border border-border bg-background px-3 py-3" />{error && <p className="text-sm text-destructive">{error}</p>}<button disabled={loading} className="rounded-xl bg-primary py-3 font-semibold text-primary-foreground disabled:opacity-60">{loading ? "Aguarde..." : registering ? "Criar conta" : "Entrar"}</button></form><button onClick={() => { setRegistering(!registering); setError("") }} className="mt-5 w-full text-sm text-primary">{registering ? "Já tenho uma conta" : "Criar uma conta"}</button></div></main>
 }
 
 function Brand() { return <div className="flex items-center gap-3 px-2"><div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground"><Wallet className="size-5" /></div><b>Nexa Finance</b></div> }

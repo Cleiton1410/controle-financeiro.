@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getSessionUserId } from "@/lib/auth"
 
 const defaultGoals = [
   { id: 1, name: "Viagem para Europa eu e  fran", current: 0, target: 0 },
@@ -16,14 +17,17 @@ type FinanceData = {
 }
 
 export async function GET() {
+  const userId = await getSessionUserId()
+  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
+
   const [transactions, goals, accounts] = await prisma.$transaction(async database => {
-    if (!(await database.goal.count())) await database.goal.createMany({ data: defaultGoals })
-    if (!(await database.account.count())) await database.account.createMany({ data: defaultAccounts })
+    if (!(await database.goal.count({ where: { userId } }))) await database.goal.createMany({ data: defaultGoals.map(({ id, ...goal }) => ({ ...goal, userId })) })
+    if (!(await database.account.count({ where: { userId } }))) await database.account.createMany({ data: defaultAccounts.map(({ id, ...account }) => ({ ...account, userId })) })
 
     return Promise.all([
-      database.transaction.findMany({ orderBy: { id: "desc" } }),
-      database.goal.findMany({ orderBy: { id: "asc" } }),
-      database.account.findMany({ orderBy: { id: "asc" } }),
+      database.transaction.findMany({ where: { userId }, orderBy: { id: "desc" } }),
+      database.goal.findMany({ where: { userId }, orderBy: { id: "asc" } }),
+      database.account.findMany({ where: { userId }, orderBy: { id: "asc" } }),
     ])
   })
 
@@ -31,6 +35,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const userId = await getSessionUserId()
+  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
   const data = await request.json() as FinanceData
 
   if (!Array.isArray(data.transactions) || !Array.isArray(data.goals) || !Array.isArray(data.accounts)) {
@@ -38,12 +44,12 @@ export async function PUT(request: Request) {
   }
 
   await prisma.$transaction(async database => {
-    await database.transaction.deleteMany()
-    await database.goal.deleteMany()
-    await database.account.deleteMany()
-    if (data.transactions.length) await database.transaction.createMany({ data: data.transactions.map(({ id, ...transaction }) => transaction) })
-    if (data.goals.length) await database.goal.createMany({ data: data.goals.map(({ id, ...goal }) => goal) })
-    if (data.accounts.length) await database.account.createMany({ data: data.accounts.map(({ id, ...account }) => account) })
+    await database.transaction.deleteMany({ where: { userId } })
+    await database.goal.deleteMany({ where: { userId } })
+    await database.account.deleteMany({ where: { userId } })
+    if (data.transactions.length) await database.transaction.createMany({ data: data.transactions.map(({ id, ...transaction }) => ({ ...transaction, userId })) })
+    if (data.goals.length) await database.goal.createMany({ data: data.goals.map(({ id, ...goal }) => ({ ...goal, userId })) })
+    if (data.accounts.length) await database.account.createMany({ data: data.accounts.map(({ id, ...account }) => ({ ...account, userId })) })
   })
 
   return NextResponse.json({ ok: true })
