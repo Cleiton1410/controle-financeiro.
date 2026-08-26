@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getSessionUserId } from "@/lib/auth"
 
 const defaultGoals = [
-  { id: 1, name: "Viagem para Europa eu e  fran", current: 0, target: 0 },
-  { id: 2, name: "Reserva de emergência", current: 0, target: 0 },
+  { id: 1, name: "Minha primeira meta", current: 0, target: 1000 },
 ]
 const defaultAccounts = [
   { id: 1, name: "Nubank principal", type: "Conta corrente", value: 0 },
