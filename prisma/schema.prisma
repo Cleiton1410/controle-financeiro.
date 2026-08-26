@@ -46,6 +46,8 @@ model User {
   name         String
   plan         String        @default("basic")
   planStatus   String        @default("active")
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
   createdAt    DateTime      @default(now())
   transactions Transaction[]
   goals        Goal[]
