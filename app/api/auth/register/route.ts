@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   if (existing) return NextResponse.json({ error: "Este e-mail já está cadastrado." }, { status: 409 })
 
   const user = await prisma.$transaction(async database => {
-    const created = await database.user.create({ data: { name: String(name).trim(), email: normalizedEmail, passwordHash: await hash(String(password), 12) } })
+    const created = await database.user.create({ data: { name: String(name).trim(), email: normalizedEmail, passwordHash: await hash(String(password), 12), plan: "basic", planStatus: "active" } })
     await database.transaction.updateMany({ where: { userId: null }, data: { userId: created.id } })
     await database.goal.updateMany({ where: { userId: null }, data: { userId: created.id } })
     await database.account.updateMany({ where: { userId: null }, data: { userId: created.id } })
@@ -22,5 +22,5 @@ export async function POST(request: Request) {
   })
 
   await createSession(user.id)
-  return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email } }, { status: 201 })
+  return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, plan: user.plan, planStatus: user.planStatus } }, { status: 201 })
 }

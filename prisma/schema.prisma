@@ -44,6 +44,8 @@ model User {
   email        String        @unique
   passwordHash String
   name         String
+  plan         String        @default("basic")
+  planStatus   String        @default("active")
   createdAt    DateTime      @default(now())
   transactions Transaction[]
   goals        Goal[]

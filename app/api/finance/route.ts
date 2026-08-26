@@ -14,10 +14,13 @@ type FinanceData = {
   goals: Array<{ id?: number; name: string; current: number; target: number }>
   accounts: Array<{ id?: number; name: string; type: string; value: number }>
 }
+const planLimits = { basic: { transactions: 50, goals: 3, accounts: 2 }, premium: { transactions: Infinity, goals: Infinity, accounts: Infinity } }
 
 export async function GET() {
   const userId = await getSessionUserId()
   if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
+  if (!user) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 401 })
 
   const [transactions, goals, accounts] = await prisma.$transaction(async database => {
     if (!(await database.goal.count({ where: { userId } }))) await database.goal.createMany({ data: defaultGoals.map(({ id, ...goal }) => ({ ...goal, userId })) })
@@ -30,7 +33,7 @@ export async function GET() {
     ])
   })
 
-  return NextResponse.json({ transactions, goals, accounts })
+  return NextResponse.json({ transactions, goals, accounts, plan: user.plan, limits: planLimits[user.plan as keyof typeof planLimits] ?? planLimits.basic })
 }
 
 export async function PUT(request: Request) {
@@ -58,9 +61,20 @@ export async function POST(request: Request) {
   const userId = await getSessionUserId()
   if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
   const { resource, data } = await request.json()
-  if (resource === "transaction") return NextResponse.json(await prisma.transaction.create({ data: { ...data, userId } }))
-  if (resource === "goal") return NextResponse.json(await prisma.goal.create({ data: { ...data, userId } }))
-  if (resource === "account") return NextResponse.json(await prisma.account.create({ data: { ...data, userId } }))
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
+  const limits = planLimits[user?.plan as keyof typeof planLimits] ?? planLimits.basic
+  if (resource === "transaction") {
+    if (await prisma.transaction.count({ where: { userId } }) >= limits.transactions) return NextResponse.json({ error: "Limite de 50 transações do plano Basic atingido." }, { status: 403 })
+    return NextResponse.json(await prisma.transaction.create({ data: { name: data.name, category: data.category, date: data.date, value: data.value, type: data.type, userId } }))
+  }
+  if (resource === "goal") {
+    if (await prisma.goal.count({ where: { userId } }) >= limits.goals) return NextResponse.json({ error: "Limite de 3 metas do plano Basic atingido." }, { status: 403 })
+    return NextResponse.json(await prisma.goal.create({ data: { name: data.name, current: data.current, target: data.target, userId } }))
+  }
+  if (resource === "account") {
+    if (await prisma.account.count({ where: { userId } }) >= limits.accounts) return NextResponse.json({ error: "Limite de 2 contas do plano Basic atingido." }, { status: 403 })
+    return NextResponse.json(await prisma.account.create({ data: { name: data.name, type: data.type, value: data.value, userId } }))
+  }
   return NextResponse.json({ error: "Recurso inválido" }, { status: 400 })
 }
 
