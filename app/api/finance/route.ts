@@ -53,3 +53,35 @@ export async function PUT(request: Request) {
 
   return NextResponse.json({ ok: true })
 }
+
+export async function POST(request: Request) {
+  const userId = await getSessionUserId()
+  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
+  const { resource, data } = await request.json()
+  if (resource === "transaction") return NextResponse.json(await prisma.transaction.create({ data: { ...data, userId } }))
+  if (resource === "goal") return NextResponse.json(await prisma.goal.create({ data: { ...data, userId } }))
+  if (resource === "account") return NextResponse.json(await prisma.account.create({ data: { ...data, userId } }))
+  return NextResponse.json({ error: "Recurso inválido" }, { status: 400 })
+}
+
+export async function PATCH(request: Request) {
+  const userId = await getSessionUserId()
+  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
+  const { resource, id, data } = await request.json()
+  const where = { id: Number(id), userId }
+  if (resource === "transaction") return NextResponse.json(await prisma.transaction.updateMany({ where, data }))
+  if (resource === "goal") return NextResponse.json(await prisma.goal.updateMany({ where, data }))
+  if (resource === "account") return NextResponse.json(await prisma.account.updateMany({ where, data }))
+  return NextResponse.json({ error: "Recurso inválido" }, { status: 400 })
+}
+
+export async function DELETE(request: Request) {
+  const userId = await getSessionUserId()
+  if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
+  const { resource, id } = await request.json()
+  const where = { id: Number(id), userId }
+  if (resource === "transaction") return NextResponse.json(await prisma.transaction.deleteMany({ where }))
+  if (resource === "goal") return NextResponse.json(await prisma.goal.deleteMany({ where }))
+  if (resource === "account") return NextResponse.json(await prisma.account.deleteMany({ where }))
+  return NextResponse.json({ error: "Recurso inválido" }, { status: 400 })
+}
