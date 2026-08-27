@@ -28,7 +28,7 @@ export async function GET() {
 
     return Promise.all([
       database.transaction.findMany({ where: { userId }, orderBy: { id: "desc" } }),
-      database.goal.findMany({ where: { userId }, orderBy: { id: "asc" } }),
+      database.goal.findMany({ where: { userId }, orderBy: { id: "asc" }, include: { contributions: { orderBy: { createdAt: "desc" } } } }),
       database.account.findMany({ where: { userId }, orderBy: { id: "asc" } }),
     ])
   })
@@ -61,6 +61,17 @@ export async function POST(request: Request) {
   const userId = await getSessionUserId()
   if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
   const { resource, data } = await request.json()
+  if (resource === "goalContribution") {
+    const goal = await prisma.goal.findFirst({ where: { id: Number(data.goalId), userId } })
+    const value = Number(data.value)
+    if (!goal || !Number.isFinite(value) || value <= 0) return NextResponse.json({ error: "Aporte inválido" }, { status: 400 })
+    const contribution = await prisma.$transaction(async database => {
+      const created = await database.goalContribution.create({ data: { goalId: goal.id, userId, value } })
+      await database.goal.update({ where: { id: goal.id }, data: { current: { increment: value } } })
+      return created
+    })
+    return NextResponse.json(contribution)
+  }
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
   const limits = planLimits[user?.plan as keyof typeof planLimits] ?? planLimits.basic
   if (resource === "transaction") {

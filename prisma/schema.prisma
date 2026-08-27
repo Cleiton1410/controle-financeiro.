@@ -26,7 +26,21 @@ model Goal {
   current Float  @default(0)
   target  Float
   user    User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions GoalContribution[]
   @@map("Goal")
+}
+
+model GoalContribution {
+  id        Int      @id @default(autoincrement())
+  goalId    Int
+  userId    Int
+  value     Float
+  createdAt DateTime @default(now())
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([goalId])
+  @@index([userId])
+  @@map("GoalContribution")
 }
 
 model Account {
@@ -51,6 +65,7 @@ model User {
   createdAt    DateTime      @default(now())
   transactions Transaction[]
   goals        Goal[]
+  contributions GoalContribution[]
   accounts     Account[]
   @@map("User")
 }
