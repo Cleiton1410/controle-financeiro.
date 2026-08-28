@@ -90,11 +90,19 @@ function AuthScreen({ onAuthenticated, error, setError }: { onAuthenticated: (us
     event.preventDefault()
     setLoading(true)
     setError("")
-    const response = await fetch(registering ? "/api/auth/register" : "/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) })
-    const data = await response.json()
-    if (response.ok) onAuthenticated(data.user)
-    else setError(data.error ?? "Não foi possível entrar.")
-    setLoading(false)
+
+    try {
+      const response = await fetch(registering ? "/api/auth/register" : "/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) })
+      const contentType = response.headers.get("content-type") ?? ""
+      const data = contentType.includes("application/json") ? await response.json().catch(() => ({})) : {}
+
+      if (response.ok && data.user) onAuthenticated(data.user)
+      else setError(data.error ?? "Não foi possível entrar. Tente novamente.")
+    } catch {
+      setError("Não foi possível conectar ao servidor. Tente novamente.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return <main className="grid min-h-screen place-items-center bg-background px-5 py-10 text-foreground"><div className="w-full max-w-md rounded-2xl border border-border bg-card p-7"><div className="mb-8 flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground"><Wallet className="size-5" /></div><div><b>Nexa Finance</b><p className="text-xs text-muted-foreground">Controle financeiro</p></div></div><h1 className="text-2xl font-semibold">{registering ? "Crie sua conta" : "Bem-vindo de volta"}</h1><p className="mt-2 text-sm text-muted-foreground">{registering ? "Comece a organizar suas finanças." : "Entre para acessar seus dados financeiros."}</p><form onSubmit={submit} className="mt-6 flex flex-col gap-4">{registering && <input required value={name} onChange={event => setName(event.target.value)} placeholder="Nome" className="rounded-xl border border-border bg-background px-3 py-3" />}<input required type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="E-mail" className="rounded-xl border border-border bg-background px-3 py-3" /><input required minLength={6} type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Senha (mínimo 6 caracteres)" className="rounded-xl border border-border bg-background px-3 py-3" />{error && <p className="text-sm text-destructive">{error}</p>}<button disabled={loading} className="rounded-xl bg-primary py-3 font-semibold text-primary-foreground disabled:opacity-60">{loading ? "Aguarde..." : registering ? "Criar conta" : "Entrar"}</button></form><button onClick={() => { setRegistering(!registering); setError("") }} className="mt-5 w-full text-sm text-primary">{registering ? "Já tenho uma conta" : "Criar uma conta"}</button></div></main>
