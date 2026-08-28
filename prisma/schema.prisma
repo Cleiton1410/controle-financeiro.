@@ -44,13 +44,41 @@ model GoalContribution {
 }
 
 model Account {
-  id    Int    @id @default(autoincrement())
-  userId Int?
-  name  String
-  type  String
-  value Float
-  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id      Int    @id @default(autoincrement())
+  userId  Int?
+  name    String
+  type    String
+  value   Float
+  dueDate Int?
+  user    User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@map("Account")
+}
+
+model Budget {
+  id       Int    @id @default(autoincrement())
+  userId   Int
+  category String
+  limit    Float
+  period   String @default("monthly")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, category, period])
+  @@index([userId])
+  @@map("Budget")
+}
+
+model RecurringTransaction {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  name      String
+  category  String
+  value     Float
+  type      String
+  frequency String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, active])
+  @@map("RecurringTransaction")
 }
 
 model User {
@@ -67,5 +95,7 @@ model User {
   goals        Goal[]
   contributions GoalContribution[]
   accounts     Account[]
+  budgets      Budget[]
+  recurringTransactions RecurringTransaction[]
   @@map("User")
 }
