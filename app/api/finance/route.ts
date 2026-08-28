@@ -22,18 +22,20 @@ export async function GET() {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
   if (!user) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 401 })
 
-  const [transactions, goals, accounts] = await prisma.$transaction(async database => {
+  const [transactions, goals, accounts, budgets, recurringTransactions] = await prisma.$transaction(async database => {
     if (!(await database.goal.count({ where: { userId } }))) await database.goal.createMany({ data: defaultGoals.map(({ id, ...goal }) => ({ ...goal, userId })) })
     if (!(await database.account.count({ where: { userId } }))) await database.account.createMany({ data: defaultAccounts.map(({ id, ...account }) => ({ ...account, userId })) })
 
     return Promise.all([
       database.transaction.findMany({ where: { userId }, orderBy: { id: "desc" } }),
       database.goal.findMany({ where: { userId }, orderBy: { id: "asc" }, include: { contributions: { orderBy: { createdAt: "desc" } } } }),
-      database.account.findMany({ where: { userId }, orderBy: { id: "asc" } }),
-    ])
+  database.account.findMany({ where: { userId }, orderBy: { id: "asc" } }),
+  database.budget.findMany({ where: { userId }, orderBy: { category: "asc" } }),
+  database.recurringTransaction.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
+  ])
   })
 
-  return NextResponse.json({ transactions, goals, accounts, plan: user.plan, limits: planLimits[user.plan as keyof typeof planLimits] ?? planLimits.basic })
+  return NextResponse.json({ transactions, goals, accounts, budgets, recurring: recurringTransactions, plan: user.plan, limits: planLimits[user.plan as keyof typeof planLimits] ?? planLimits.basic })
 }
 
 export async function PUT(request: Request) {
