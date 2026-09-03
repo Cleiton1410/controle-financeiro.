@@ -53,6 +53,28 @@ model Account {
   @@map("Account")
 }
 
+model Budget {
+  id       Int    @id @default(autoincrement())
+  userId   Int
+  category String
+  limit    Float
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("Budget")
+}
+
+model Recurrence {
+  id       Int    @id @default(autoincrement())
+  userId   Int
+  name     String
+  category String
+  value    Float
+  active   Boolean @default(true)
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("Recurrence")
+}
+
 model User {
   id           Int           @id @default(autoincrement())
   email        String        @unique
@@ -67,5 +89,7 @@ model User {
   goals        Goal[]
   contributions GoalContribution[]
   accounts     Account[]
+  budgets      Budget[]
+  recurrences  Recurrence[]
   @@map("User")
 }

@@ -9,3 +9,13 @@
 }
 :root { color-scheme: dark; --background: oklch(0.13 0.025 255); --foreground: oklch(0.96 0.01 250); --card: oklch(0.175 0.025 255); --primary: oklch(0.78 0.17 165); --primary-foreground: oklch(0.13 0.025 255); --muted: oklch(0.22 0.03 255); --muted-foreground: oklch(0.68 0.03 250); --border: oklch(1 0 0 / 10%); --sidebar: oklch(0.105 0.02 255); --sidebar-accent: oklch(0.21 0.035 255); --sidebar-accent-foreground: oklch(0.95 0.01 250); --chart-2: oklch(0.72 0.16 155); --chart-3: oklch(0.72 0.13 215); --chart-4: oklch(0.74 0.15 45); --radius: 0.7rem; }
 @layer base { * { @apply border-border; } body { @apply bg-background text-foreground; } }
+
+html, body { min-width: 320px; overflow-x: hidden; }
+
+@media (max-width: 767px) {
+  main > section > header { flex-wrap: wrap; gap: 1rem; }
+  main > section > header > div:first-child { min-width: 0; }
+  main > section > header > div:last-child { margin-left: auto; max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }
+  main > section > header h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  main > section > header button { min-height: 2.5rem; }
+}
